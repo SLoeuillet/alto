@@ -64,7 +64,10 @@ beforeAll(async () => {
         port: GLAMSTERDAM_ALTO_PORT,
         flags: {
             "glamsterdam-enabled": true,
-            "transaction-gas-stipend": "15000"
+            "transaction-gas-stipend": "15000",
+            // v0.6 callGasLimit is derived from the gas a simulation used,
+            // which leaves no room for the 63/64 rule in nested calls
+            "v6-call-gas-limit-multiplier": "120"
         }
     })
     lowCapAlto = await startAltoWithFlags({
