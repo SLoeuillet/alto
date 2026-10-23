@@ -23,12 +23,16 @@ import {
 export class GasEstimator06 {
     private readonly config: AltoConfig
     private readonly logger: Logger
+    // Gas limit for simulation calls, undefined uses the node's default
     private readonly simulationGasLimit: bigint | undefined
 
-    constructor(
-        config: AltoConfig,
-        simulationGasLimit = config.fixedGasLimitForEstimation
-    ) {
+    constructor({
+        config,
+        simulationGasLimit
+    }: {
+        config: AltoConfig
+        simulationGasLimit: bigint | undefined
+    }) {
         this.config = config
         this.simulationGasLimit = simulationGasLimit
         this.logger = config.getLogger(
