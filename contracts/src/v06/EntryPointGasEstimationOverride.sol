@@ -237,8 +237,8 @@ contract EntryPointGasEstimationOverride06 is IEntryPoint, StakeManager, NonceMa
         revert ExecutionResult(opInfo.preOpGas, paid, data.validAfter, data.validUntil, targetSuccess, targetResult);
     }
 
-    // Returns instead of reverting with ExecutionResult when the userOp succeeds, so eth_estimateGas can find the
-    // gas it needs.
+    // simulateHandleOp always reverts, with ExecutionResult when the userOp succeeds. This returns on ExecutionResult and
+    // re-reverts with anything else, so eth_estimateGas can search for the smallest gas at which the userOp succeeds.
     function simulateHandleOpNoRevert(UserOperation calldata op) external {
         try this.simulateHandleOp(op, address(0), "") {}
         catch (bytes memory reason) {
