@@ -10,7 +10,12 @@ import {
     type ValidationResult,
     sendUserOperationSchema
 } from "@alto/types"
-import { getAAError, scaleBigIntByPercent } from "@alto/utils"
+import {
+    getAAError,
+    maxBigInt,
+    minBigInt,
+    scaleBigIntByPercent
+} from "@alto/utils"
 import { type Hex, slice } from "viem"
 import type { AltoConfig } from "../../createConfig"
 import { getFilterOpsResult } from "../../executor/filterOpsAndEstimateGas"
@@ -32,6 +37,18 @@ import type { RpcHandler } from "../rpcHandler"
 // Buffer on the EIP-8037 state gas reservoir the bundler fronts for a
 // boosted userOp
 const BOOSTED_RESERVOIR_GAS_MULTIPLIER = 120n
+
+// eth_estimateGas stops searching once its window is under 1.5% of the gas
+// it returns (geth), so the smallest gas a userOp passes with can be up to
+// 1.5% below it
+const ESTIMATE_GAS_ERROR_PER_MILLE = 15n
+
+// Smallest reservoir the userOp can need, given eth_estimateGas's tolerance
+const getLowestReservoirGas = (reservoirGas: bigint): bigint => {
+    const gas = TX_MAX_GAS_LIMIT + reservoirGas
+    const lowestGas = gas - (gas * ESTIMATE_GAS_ERROR_PER_MILLE) / 1000n
+    return maxBigInt(lowestGas - TX_MAX_GAS_LIMIT, 0n)
+}
 
 const validateChainRules = async ({
     rpcHandler,
@@ -353,17 +370,22 @@ export async function addToMempoolIfValid({
 
     // The EntryPoint never charges reservoir gas to the userOp, so a userOp
     // that pays must cover the reservoir in preVerificationGas
-    if (
-        !isBoosted &&
-        minReservoirGas &&
-        userOp.preVerificationGas < requiredPvg + minReservoirGas
-    ) {
-        const reason = `preVerificationGas is not enough to pay for the EIP-8037 state gas reservoir, required: ${requiredPvg + minReservoirGas}, got: ${userOp.preVerificationGas}`
+    const requiredReservoirPvg =
+        !isBoosted && minReservoirGas
+            ? requiredPvg + getLowestReservoirGas(minReservoirGas)
+            : 0n
+    if (userOp.preVerificationGas < requiredReservoirPvg) {
+        const reason = `preVerificationGas is not enough to pay for the EIP-8037 state gas reservoir, required: ${requiredReservoirPvg}, got: ${userOp.preVerificationGas}`
         rpcHandler.eventManager.emitFailedValidation(userOpHash, reason)
         throw new RpcError(reason, ERC7769Errors.SimulateValidation)
     }
 
-    userOpInfo.reservoirGas = reservoirGas
+    // A paid userOp is bundled with the reservoir its preVerificationGas
+    // covers, so the bundler doesn't pay for reservoir gas it isn't paid for
+    userOpInfo.reservoirGas =
+        !isBoosted && reservoirGas
+            ? minBigInt(reservoirGas, userOp.preVerificationGas - requiredPvg)
+            : reservoirGas
 
     // Nonce validation
     const [, userOpNonceSeq] = getNonceKeyAndSequence(userOp.nonce)
