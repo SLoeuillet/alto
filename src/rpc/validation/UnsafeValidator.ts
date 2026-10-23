@@ -45,6 +45,7 @@ export class UnsafeValidator implements InterfaceValidator {
     gasPriceManager: GasPriceManager
     logger: Logger
     gasEstimationHandler: GasEstimationHandler
+    // Gas limit for simulation calls, undefined uses the node's default
     simulationGasLimit: bigint | undefined
 
     constructor({
@@ -68,11 +69,11 @@ export class UnsafeValidator implements InterfaceValidator {
                 level: config.logLevel
             }
         )
-        this.gasEstimationHandler = new GasEstimationHandler(
+        this.gasEstimationHandler = new GasEstimationHandler({
             config,
             gasPriceManager,
             simulationGasLimit
-        )
+        })
     }
 
     withSimulationGasLimit(gasLimit: bigint): InterfaceValidator {

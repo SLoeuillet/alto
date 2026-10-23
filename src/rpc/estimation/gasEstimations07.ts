@@ -43,13 +43,18 @@ export class GasEstimator07 {
     private readonly config: AltoConfig
     private readonly logger: Logger
     private readonly gasPriceManager: GasPriceManager
+    // Gas limit for simulation calls, undefined uses the node's default
     private readonly simulationGasLimit: bigint | undefined
 
-    constructor(
-        config: AltoConfig,
-        gasPriceManager: GasPriceManager,
-        simulationGasLimit = config.fixedGasLimitForEstimation
-    ) {
+    constructor({
+        config,
+        gasPriceManager,
+        simulationGasLimit
+    }: {
+        config: AltoConfig
+        gasPriceManager: GasPriceManager
+        simulationGasLimit: bigint | undefined
+    }) {
         this.config = config
         this.gasPriceManager = gasPriceManager
         this.simulationGasLimit = simulationGasLimit
