@@ -101,6 +101,11 @@ export class GasEstimationHandler {
     // the reservoir, so eth_estimateGas finds it in one call. Searching on
     // pass/fail covers the userOp's peak state gas, which is above its net
     // state gas when it clears state it created earlier.
+    //
+    // eth_estimateGas stops searching within a tolerance (geth: once its
+    // window is under 1.5% of the gas it returns), so the reservoir can be up
+    // to that much above the smallest one. A binary search over eth_call
+    // would be exact to one new slot, but takes ~11 sequential calls.
     async findReservoirGas({
         userOp,
         queuedUserOps,
