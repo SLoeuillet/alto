@@ -29,7 +29,7 @@ import "../SimulationOverrideHelper.sol";
 // - Hardcode senderCreator
 // - Renamed to EntryPointGasEstimationOverride
 // - Throw custom error CallPhaseReverted if callphase reverts
-// - Run the call phase with callGasLimit instead of gasleft() if USE_CALL_GAS_LIMIT is set
+// - Run the call phase with userOp.callGasLimit instead of gasleft() if USE_CALL_GAS_LIMIT is set
 // - Add simulateHandleOpNoRevert
 contract EntryPointGasEstimationOverride06 is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard {
     using UserOperationLib for UserOperation;
