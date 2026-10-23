@@ -132,12 +132,16 @@ describe.each([
             })
         })
 
-        // A fresh salt per call, so every slot is new state
+        // A fresh salt per call, so every slot is new state. Salts step by
+        // STATE_CREATOR_SLOTS per millisecond, so calls made in different
+        // milliseconds never write the same slots
         const stateCreatorCalls = () =>
             [
                 {
                     to: STATE_CREATOR,
-                    data: pad(toHex(BigInt(Date.now())), { size: 32 }),
+                    data: pad(toHex(BigInt(Date.now()) * STATE_CREATOR_SLOTS), {
+                        size: 32
+                    }),
                     value: 0n
                 }
             ] as const
