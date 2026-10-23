@@ -311,7 +311,7 @@ const fitsMaxGasPerUserOp = ({
 // runs out of gas. Gas above the cap is the state gas reservoir, which
 // gasleft() can't see, so simulating above it gives limits for regular gas
 // only.
-const needsReservoir = ({
+const needsEip8037Reservoir = ({
     rpcHandler,
     userOp,
     meteredResult
@@ -410,25 +410,25 @@ export const ethEstimateUserOperationGasHandler = createMethodHandler({
 
         let gasEstimateResult = meteredResult
         let isReservoirMode = false
-        let validator = rpcHandler.validator
+        const { validator } = rpcHandler
+        let finalValidator = validator
 
-        if (needsReservoir({ rpcHandler, userOp, meteredResult })) {
-            const reservoirValidator =
-                rpcHandler.validator.withSimulationGasLimit(
-                    TX_MAX_GAS_LIMIT + maxReservoirGas
-                )
+        if (needsEip8037Reservoir({ rpcHandler, userOp, meteredResult })) {
+            const eip8037Validator = validator.withSimulationGasLimit(
+                TX_MAX_GAS_LIMIT + maxReservoirGas
+            )
             const reservoirResult = await getGasEstimates({
                 rpcHandler,
                 userOp,
                 entryPoint,
                 stateOverrides,
-                validator: reservoirValidator
+                validator: eip8037Validator
             })
 
             if (reservoirResult.status === "success") {
                 gasEstimateResult = reservoirResult
                 isReservoirMode = true
-                validator = reservoirValidator
+                finalValidator = eip8037Validator
             }
         }
 
@@ -490,14 +490,13 @@ export const ethEstimateUserOperationGasHandler = createMethodHandler({
                 userOp.maxFeePerGas === 0n && userOp.maxPriorityFeePerGas === 0n
 
             if (!isBoosted) {
-                const reservoirGas =
-                    await rpcHandler.validator.findReservoirGas({
-                        userOp: reservoirUserOp,
-                        queuedUserOps: gasEstimateResult.queuedUserOps,
-                        entryPoint,
-                        stateOverrides: deepHexlify(stateOverrides),
-                        maxReservoirGas
-                    })
+                const reservoirGas = await validator.findReservoirGas({
+                    userOp: reservoirUserOp,
+                    queuedUserOps: gasEstimateResult.queuedUserOps,
+                    entryPoint,
+                    stateOverrides: deepHexlify(stateOverrides),
+                    maxReservoirGas
+                })
 
                 if (reservoirGas === undefined) {
                     throw new RpcError(
@@ -507,13 +506,13 @@ export const ethEstimateUserOperationGasHandler = createMethodHandler({
                 }
 
                 preVerificationGas += reservoirGas
-                validator = rpcHandler.validator.withSimulationGasLimit(
+                finalValidator = validator.withSimulationGasLimit(
                     TX_MAX_GAS_LIMIT + reservoirGas
                 )
             }
         }
 
-        const finalGasLimits = await validator.validateHandleOp({
+        const finalGasLimits = await finalValidator.validateHandleOp({
             userOp: {
                 ...userOp,
                 ...gasEstimateResult.estimates, // use actual callGasLimit, verificationGasLimit, paymasterPostOpGasLimit, paymasterVerificationGasLimit
