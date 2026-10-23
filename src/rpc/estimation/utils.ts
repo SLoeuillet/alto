@@ -300,19 +300,19 @@ export async function prepareSimulationOverrides06({
     if (config.codeOverrideSupport && useCodeOverride) {
         const senderCreatorOverride = getSenderCreatorOverride(entryPoint)
 
+        const stateDiff: Record<Hex, Hex> = {
+            ...(mergedStateOverrides[entryPoint]?.stateDiff || {}),
+            [senderCreatorOverride.slot]: senderCreatorOverride.value
+        }
+
+        if (useCallGasLimit) {
+            const slot = keccak256(toHex("USE_CALL_GAS_LIMIT"))
+            stateDiff[slot] = toHex(1, { size: 32 })
+        }
+
         mergedStateOverrides[entryPoint] = {
             ...deepHexlify(mergedStateOverrides?.[entryPoint] || {}),
-            stateDiff: {
-                ...(mergedStateOverrides[entryPoint]?.stateDiff || {}),
-                [senderCreatorOverride.slot]: senderCreatorOverride.value,
-                ...(useCallGasLimit
-                    ? {
-                          [keccak256(toHex("USE_CALL_GAS_LIMIT"))]: toHex(1, {
-                              size: 32
-                          })
-                      }
-                    : {})
-            },
+            stateDiff,
             code: entryPointOverride.deployedBytecode.object as Hex
         }
     }
