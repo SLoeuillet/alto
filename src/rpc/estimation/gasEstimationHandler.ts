@@ -95,17 +95,10 @@ export class GasEstimationHandler {
         })
     }
 
-    // Smallest EIP-8037 state gas reservoir the userOp passes with (0 if it
-    // passes without one), or undefined if it fails even with
-    // maxReservoirGas. The simulation's gas limit above TX_MAX_GAS_LIMIT is
-    // the reservoir, so eth_estimateGas finds it in one call. Searching on
-    // pass/fail covers the userOp's peak state gas, which is above its net
-    // state gas when it clears state it created earlier.
-    //
-    // eth_estimateGas stops searching within a tolerance (geth: once its
-    // window is under 1.5% of the gas it returns), so the reservoir can be up
-    // to that much above the smallest one. A binary search over eth_call
-    // would be exact to one new slot, but takes ~11 sequential calls.
+    // Smallest EIP-8037 state gas reservoir the userOp passes with, 0 if it
+    // needs none, or undefined if maxReservoirGas isn't enough. Searching on
+    // pass/fail covers peak state gas, not net. eth_estimateGas can overshoot
+    // by its tolerance (geth: 1.5%).
     async findReservoirGas({
         userOp,
         queuedUserOps,
