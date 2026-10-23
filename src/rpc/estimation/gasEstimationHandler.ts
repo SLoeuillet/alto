@@ -5,12 +5,9 @@ import type {
     UserOperation07
 } from "@alto/types"
 import { isVersion06 } from "@alto/utils"
-import { type Address, type Hex, zeroAddress } from "viem"
+import type { Address, Hex } from "viem"
 import type { AltoConfig } from "../../createConfig"
-import {
-    EIP8037_NEW_SLOT_STATE_GAS,
-    TX_MAX_GAS_LIMIT
-} from "../../utils/eip8037"
+import { TX_MAX_GAS_LIMIT } from "../../utils/eip8037"
 import { GasEstimator06 } from "./gasEstimations06"
 import { GasEstimator07 } from "./gasEstimations07"
 import type { SimulateHandleOpResult } from "./types"
@@ -18,29 +15,17 @@ import type { SimulateHandleOpResult } from "./types"
 export class GasEstimationHandler {
     gasEstimator06: GasEstimator06
     gasEstimator07: GasEstimator07
-    private readonly config: AltoConfig
-    private readonly gasPriceManager: GasPriceManager
 
     constructor(
         config: AltoConfig,
         gasPriceManager: GasPriceManager,
         simulationGasLimit = config.fixedGasLimitForEstimation
     ) {
-        this.config = config
-        this.gasPriceManager = gasPriceManager
         this.gasEstimator06 = new GasEstimator06(config, simulationGasLimit)
         this.gasEstimator07 = new GasEstimator07(
             config,
             gasPriceManager,
             simulationGasLimit
-        )
-    }
-
-    withSimulationGasLimit(gasLimit: bigint): GasEstimationHandler {
-        return new GasEstimationHandler(
-            this.config,
-            this.gasPriceManager,
-            gasLimit
         )
     }
 
@@ -110,8 +95,10 @@ export class GasEstimationHandler {
         })
     }
 
-    // Smallest EIP-8037 state gas reservoir the userOp passes with, or
-    // undefined if it fails even with maxReservoirGas. Searching on
+    // Smallest EIP-8037 state gas reservoir the userOp passes with (0 if it
+    // passes without one), or undefined if it fails even with
+    // maxReservoirGas. The simulation's gas limit above TX_MAX_GAS_LIMIT is
+    // the reservoir, so eth_estimateGas finds it in one call. Searching on
     // pass/fail covers the userOp's peak state gas, which is above its net
     // state gas when it clears state it created earlier.
     async findReservoirGas({
@@ -127,35 +114,26 @@ export class GasEstimationHandler {
         stateOverrides?: StateOverrides
         maxReservoirGas: bigint
     }): Promise<bigint | undefined> {
-        const passes = async (reservoirGas: bigint) => {
-            const result = await this.withSimulationGasLimit(
-                TX_MAX_GAS_LIMIT + reservoirGas
-            ).validateHandleOp({
-                userOp,
-                queuedUserOps,
-                entryPoint,
-                targetAddress: zeroAddress,
-                targetCallData: "0x",
-                stateOverrides
-            })
-            return result.result === "execution"
-        }
+        const gasCap = TX_MAX_GAS_LIMIT + maxReservoirGas
+        const gas = isVersion06(userOp)
+            ? await this.gasEstimator06.estimateHandleOpGas06({
+                  userOp,
+                  entryPoint,
+                  userStateOverrides: stateOverrides,
+                  gasCap
+              })
+            : await this.gasEstimator07.estimateHandleOpGas07({
+                  userOp: userOp as UserOperation07,
+                  queuedUserOps: queuedUserOps as UserOperation07[],
+                  entryPoint,
+                  userStateOverrides: stateOverrides,
+                  gasCap
+              })
 
-        if (!(await passes(maxReservoirGas))) {
+        if (gas === undefined) {
             return undefined
         }
 
-        let low = 0n
-        let high = maxReservoirGas
-        while (high - low > EIP8037_NEW_SLOT_STATE_GAS) {
-            const mid = (low + high) / 2n
-            if (await passes(mid)) {
-                high = mid
-            } else {
-                low = mid
-            }
-        }
-
-        return high
+        return gas > TX_MAX_GAS_LIMIT ? gas - TX_MAX_GAS_LIMIT : 0n
     }
 }
