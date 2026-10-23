@@ -132,6 +132,7 @@ export class GasEstimationHandler {
             return undefined
         }
 
+        // The reservoir is the gas above TX_MAX_GAS_LIMIT (16,777,216)
         return gas > TX_MAX_GAS_LIMIT ? gas - TX_MAX_GAS_LIMIT : 0n
     }
 }
