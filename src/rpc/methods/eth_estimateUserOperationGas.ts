@@ -320,15 +320,14 @@ const needsReservoir = ({
     userOp: UserOperation
     meteredResult: GasEstimateResult
 }): boolean => {
-    const { supportsEip8037, fixedGasLimitForEstimation, chainType } =
-        rpcHandler.config
+    const { supportsEip8037, fixedGasLimitForEstimation } = rpcHandler.config
 
     // A lower simulation cap is the operator's choice, not a sign of state gas
     const simulatesAtCap =
         fixedGasLimitForEstimation === undefined ||
         fixedGasLimitForEstimation >= TX_MAX_GAS_LIMIT
 
-    if (!supportsEip8037 || !simulatesAtCap || chainType === "monad") {
+    if (!supportsEip8037 || !simulatesAtCap) {
         return false
     }
 
